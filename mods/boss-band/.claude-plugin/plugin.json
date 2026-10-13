@@ -1,0 +1,6 @@
+{
+  "name": "boss-band",
+  "version": "0.1.0",
+  "description": "Live band above the boss's prompt: one row per worker session with its color, state, time in state and task",
+  "types": "./types/index.d.ts"
+}

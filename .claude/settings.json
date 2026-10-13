@@ -1,9 +1,4 @@
 {
-  "hooks": {
-    "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/bin/boss-init", "timeout": 20 } ] }
-    ]
-  },
   "permissions": {
     "allow": [
       "Bash(/home/bosko/projects/boss/bin/boss-send-keys *)",
@@ -19,5 +14,30 @@
       "Bash(*kitty @*launch*)",
       "Bash(*kitty --detach*)"
     ]
+  },
+  "model": "haiku",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/bin/boss-init",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "boss": {
+      "source": {
+        "source": "directory",
+        "path": "/home/bosko/projects/boss"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "boss-band@boss": true
   }
 }

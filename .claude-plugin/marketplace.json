@@ -1,0 +1,11 @@
+{
+  "name": "boss",
+  "owner": { "name": "CommanderBosko" },
+  "plugins": [
+    {
+      "name": "boss-band",
+      "source": "./mods/boss-band",
+      "description": "Live band above the boss's prompt: one row per worker session with its color, state, time in state and task"
+    }
+  ]
+}
