@@ -7,14 +7,13 @@ description: Re-run the boss's definition of done (docs/project-brief.md) agains
 
 Re-runs the nine definition-of-done items in `docs/project-brief.md` against live workers and records the results, so a Claude Code upgrade or a change to `bin/` gets verified the same way every time. (Bucket: Verification)
 
-Only THE BOSS runs this. If `[boss-init]` said another boss is running, stop and say so. This skill tests; it doesn't fix. When an item fails, record what you saw and keep going. Fixing it is separate work for after the report.
+Only THE BOSS runs this. If `[boss-init]` said another boss is running, stop and say so. This skill tests; it doesn't fix. When an item fails, record what you saw and keep going. Fixing it is separate work for after the report. The one edit outside `docs/` is step 10's update to CLAUDE.md's **Known keys**, which records what the run verified; it never changes how anything behaves.
 
 ## Steps
 
 ### 1. Preflight
-- Make sure the `bin/boss-watch` Monitor is armed, and re-arm it if it has expired.
-- Run `bin/boss-status`. You need at least two workers in kitty, one of them in a git repo (e.g. `NixOS` and `farmer`). If there are fewer, stop and ask the user to open them. Don't spawn them yourself: spawning is item 5's test.
-- Run `claude --version`. If it differs from the version under **Known keys** in `CLAUDE.md`, every key mapping counts as unverified until items 4a–4c pass.
+- Make sure the `/home/bosko/projects/boss/bin/boss-watch` Monitor is armed (absolute path, as in CLAUDE.md), and re-arm it if it has expired.
+- Run `bin/boss-status`, then `.claude/skills/boss-acceptance/scripts/preflight.sh`. Exit 1 means fewer than two kitty workers, or none in a git repo (e.g. you want `NixOS` and `farmer`): stop and ask the user to open them. Don't spawn them yourself: spawning is item 5's test. Exit 3 means `claude --version` differs from the **Known keys** version in `CLAUDE.md`, so every key mapping counts as unverified until items 4a–4c pass.
 - Tell the user which workers the run uses. Don't list the native prompts coming in item 5 (see Gotchas).
 
 Worker prompts come from `assets/worker-prompts.md`. Send each one word for word with SendMessage to the worker's address. Note the time of each send, since several items have a 30-second limit.
@@ -31,11 +30,13 @@ Send **P-3** to the git-repo worker. Pass if its reply reaches the boss and `che
 ### 5. Item 4: blocked-worker relay
 Run these one at a time. For each, send the prompt, then wait for the `waiting` event, which must come within 30 s. Then follow CLAUDE.md's `waiting` flow exactly: `bin/boss-pending`, AskUserQuestion, `bin/boss-screen`, `bin/boss-send-keys` with a live-only guard, then check the screen it prints.
 
-| Item | Prompt | Guard |
+Take each guard from CLAUDE.md's **Known keys**, the source of truth, so this table can't drift from it:
+
+| Item | Prompt | Guard (Known keys entry) |
 |---|---|---|
-| 4a menu | P-4a | `❯ 1. Apple` |
-| 4b plan | P-4b | `Would you like to proceed?` |
-| 4c permission | P-4c | `requires confirmation for this command.` |
+| 4a menu | P-4a | AskUserQuestion menus: the cursor line for P-4a's first option |
+| 4b plan | P-4b | Plan approvals |
+| 4c permission | P-4c | Permission prompts, `ask`-rule variant |
 
 Pass when the worker's reply matches what the user picked. Judge whether a prompt appeared from the `waiting` event and the screen, never from the worker's own account.
 
@@ -79,6 +80,7 @@ Give one line per item (pass or fail), the doc path, and what you saw for each f
 
 ## Scripts
 
+- `scripts/preflight.sh`: read-only, no arguments. Prints the kitty worker count, which workers are in a git repo, and `claude --version` against the Known keys version. Exit 0 ready, 1 not enough workers, 2 no live boss, 3 ready but the version changed. Called in step 1.
 - `scripts/check-registry.sh`: read-only, no arguments. Prints PID, NAME, FOLDER, BACKGROUND, FOCUSED and CHECK for every worker. Exit 0 if the registry matches `pgrep -x claude` minus the boss, 1 on a mismatch, 2 if no boss is live. Called in steps 2, 4 and 6.
 
 ## Assets

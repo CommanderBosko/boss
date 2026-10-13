@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(/home/bosko/projects/boss/bin/boss-send-keys *)",
-      "Bash(bin/boss-send-keys *)"
+      "Bash(bin/boss-send-keys *)",
+      "Bash(bin/boss-screen *)",
+      "Bash(/home/bosko/projects/boss/bin/boss-screen *)",
+      "Bash(bin/boss-pending *)",
+      "Bash(/home/bosko/projects/boss/bin/boss-pending *)",
+      "Bash(bin/boss-status)",
+      "Bash(/home/bosko/projects/boss/bin/boss-status)",
+      "Bash(/home/bosko/.claude/skills/git-commit/scripts/git-commit.sh status)",
+      "Bash(/home/bosko/.claude/skills/git-push/scripts/push.sh status)"
     ],
     "ask": [
       "Bash(*boss-spawn *)",
