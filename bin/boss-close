@@ -1,16 +1,26 @@
 #!/usr/bin/env bash
-# Close a worker's kitty window (which ends its claude session). Gated by an `ask` rule in
-# .claude/settings.json. Usage: boss-close <name>
+# Close workers' kitty windows (which ends their claude sessions). Gated by an `ask` rule in
+# .claude/settings.json. Usage: boss-close <name>...
+# Several names close in one call, so the user approves them all with one prompt. A name that
+# fails doesn't stop the rest; the exit status is 1 if any failed.
 set -u
 . "$(dirname "$(readlink -f "$0")")/lib.sh"
-name=${1:?usage: boss-close <name>}
-pid=$(pid_for "$name") || exit 1
-f=$(sess_file "$pid")
-to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
-[ -n "$to" ] || { echo "$name has no reachable kitty window; close it yourself" >&2; exit 1; }
-kitten @ --to "$to" close-window --match "id:$win" || exit 1
-for _ in $(seq 20); do is_claude "$pid" || break; sleep 0.5; done
-is_claude "$pid" && { echo "window closed, but claude pid $pid is still running" >&2; exit 1; }
-# The SessionEnd hook normally logs "ended" and drops the entry first; cover the case where it didn't run.
-[ -f "$f" ] && { emit "$pid" "$name" ended "window closed by the boss"; rm -f "$f"; }
-echo "Closed $name."
+[ $# -ge 1 ] || { echo "usage: boss-close <name>..." >&2; exit 2; }
+
+close_one() {
+  local name=$1 pid f to win
+  pid=$(pid_for "$name") || return 1
+  f=$(sess_file "$pid")
+  to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
+  [ -n "$to" ] || { echo "$name has no reachable kitty window; close it yourself" >&2; return 1; }
+  kitten @ --to "$to" close-window --match "id:$win" || return 1
+  for _ in $(seq 20); do is_claude "$pid" || break; sleep 0.5; done
+  is_claude "$pid" && { echo "window closed, but claude pid $pid is still running" >&2; return 1; }
+  # The SessionEnd hook normally logs "ended" and drops the entry first; cover the case where it didn't run.
+  [ -f "$f" ] && { emit "$pid" "$name" ended "window closed by the boss"; rm -f "$f"; }
+  echo "Closed $name."
+}
+
+rc=0
+for name in "$@"; do close_one "$name" || rc=1; done
+exit $rc

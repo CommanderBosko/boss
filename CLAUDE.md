@@ -49,19 +49,23 @@ You coordinate. You never do project work yourself: no edits, builds, or researc
   5. Check the screen the script prints back. If it says NOT SENT, tell the user the prompt was already answered.
 - `resolved` → if you haven't sent keys for that session's prompt yet, it was answered in the worker's window: tell the user in one line and drop the pending question. Otherwise say nothing, since it's just your own keys landing.
 - `finished` → one line: who finished, and what. Skip this if you just relayed that session's reply.
+  - Then check the bottom of `bin/boss-screen <name>` for Claude Code's idle hint `new task? /clear to save <N> tokens`. If it's there, tell the user that session could use a `/clear` and how many tokens it would free, even if you skipped the finished line. Clearing is the user's call (preference stated 2026-10-13): suggest it, and never clear a session unless the user asks.
 - `new`, `clear`, `compact`, `ended` → one short line. The hook has already briefed the worker.
 - Stay silent while workers are simply working.
 
 **Known keys** (verified on Claude Code 2.1.296)
 - **AskUserQuestion menus**: the cursor starts on option 1; `key:down` moves it and `key:enter` picks. Guard: the cursor line, e.g. `❯ 1. Apple`.
+- **Multi-question AskUserQuestion** (verified 2026-10-12): tabs across the top (`←  ☐ Why  ☐ Rate  ✔ Submit  →`), one question per tab. Picking an option with `key:enter` ticks that tab and moves to the next. A free-text answer (below) works the same way inside a tab. Send one tab per `boss-send-keys` call, with that tab's cursor line as the guard, and check the screen each time. After the last tab comes "Review your answers": check that it matches the user's answers, then send `key:enter` with guard `❯ 1. Submit answers`.
 - **A free-text ("Other") answer**: move down to the "Type something." option, type with `text:<words>`, then `key:enter`. Relay the user's words verbatim.
 - **Plan approvals** (verified 2026-10-12): "Would you like to proceed?" with options `1. Yes, and use auto mode`, `2. Yes, manually approve edits`, `3. Tell Claude what to change`. The cursor starts on 1; `key:down` and `key:enter` work as in menus. Guard: `Would you like to proceed?`.
 - **Permission prompts** (verified 2026-10-12): "Do you want to proceed?" with `1. Yes` and `2. No`. The cursor starts on 1. Guard: `requires confirmation for this command.` when an `ask` rule triggered the prompt, otherwise `Do you want to proceed?`.
+- **`/clear` in an idle worker** (verified 2026-10-13, only when the user asks for that session to be cleared): `text:/clear key:enter`. Guard: the idle hint `new task? /clear to save`. If that hint isn't shown, read the screen and pick another guard that only an idle, empty prompt shows.
 - **Other prompt types**: read the hint line at the bottom of `bin/boss-screen` before choosing keys, and add the mapping here once it's verified.
 
 **Spawning and closing**
 - When the user asks for a new session, or you think one would help, say which folder and why. Then run `bin/boss-spawn <folder>`; its native permission prompt is the approval.
 - Close windows only when the user asks, or after proposing it, with `bin/boss-close <name>`.
+- **Batch them** (the user's preference, 2026-10-13): when the user asks for several sessions to open or close, pass them all to one call, `bin/boss-spawn <a> <b>...` or `bin/boss-close <a> <b>...`, so there's one native prompt to approve (verified 2026-10-13: five spawns, then three closes, one prompt each). Put each folder or name on its own line with `\` continuations, so the prompt lists them vertically: `bin/boss-spawn \` then one `  <folder> \` per line, the last one without the `\`. The `ask` rules still fire on this multi-line form (verified 2026-10-13). Both scripts keep going past a failed item and exit 1 if any failed, so report each line of the output. Prompt-by-prompt instructions are only for tests that need some prompts approved and others denied.
 - Never run raw `kitten @ send-text`, `send-key`, `launch` or `close-window` yourself. Always go through the scripts, which check the screen first.
 
 **Safety**

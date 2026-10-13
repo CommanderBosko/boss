@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Worker rows as JSON for the boss-band mod: {now, rows: [{name, color, state, since, detail}]},
+# waiting first, then by name. Read-only (no discover, no labeling), so it is cheap to poll.
+# Prints an empty list unless it runs under the live boss, so the band shows in the boss alone.
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+now=$(date +%s)
+me=$(claude_pid_of $$) || me=""
+if [ -z "$me" ] || [ "$me" != "$(boss_pid)" ]; then
+  jq -cn --argjson now "$now" '{now: $now, rows: []}'; exit 0
+fi
+shopt -s nullglob
+for f in "$SESS_DIR"/*.json; do
+  is_claude "$(basename "$f" .json)" || continue
+  jq -c --arg color "$(color_for "$(jq -r .name "$f")")" '
+    {name, color: $color, state, since,
+     detail: (if .pending == null then (.task // "" | sub("^From the user: "; ""))
+              elif .pending.kind == "menu" then (.pending.input.questions[0].question // "a question")
+              elif .pending.kind == "plan" then "plan approval"
+              elif .pending.kind == "permission" then
+                "permission: " + (.pending.input.command // .pending.tool // .pending.message // "?")
+              else .pending.kind end)}' "$f"
+done | jq -cs --argjson now "$now" \
+  '{now: $now, rows: sort_by(if .state == "waiting" then 0 else 1 end, (.name | ascii_downcase))}'
