@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Press keys in a worker's window to answer the prompt it is blocked on. Allowed without a
+# native prompt (.claude/settings.json); the user's answer to the relayed question is the approval.
+#
+# Usage: boss-send-keys <name> <expect> <token>...
+#   <expect>  text only the live prompt shows (e.g. '❯ 1. Apple', 'Would you like to proceed?'), not
+#             the question, which stays on screen once answered; if it's gone, nothing is sent
+#   <token>   key:<name>  (enter, escape, up, down, left, right, tab, space, backspace)
+#             text:<str>  (literal characters, e.g. text:1 to pick option 1)
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+[ $# -ge 3 ] || { sed -n '5,10p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+name=$1 expect=$2; shift 2
+pid=$(pid_for "$name") || exit 1
+f=$(sess_file "$pid")
+to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
+[ -n "$to" ] || { echo "$name has no reachable kitty window; answer it there yourself" >&2; exit 1; }
+
+for t in "$@"; do
+  case $t in key:?*|text:?*) ;; *) echo "bad token '$t' (want key:<name> or text:<str>)" >&2; exit 2 ;; esac
+done
+
+screen() { kitten @ --to "$to" get-text --match "id:$win" --extent screen; }
+if ! screen | grep -qF -- "$expect"; then
+  echo "NOT SENT: '$expect' is no longer on $name's screen (answered already, or a different prompt)." >&2
+  exit 3
+fi
+
+for t in "$@"; do
+  case $t in
+    key:*)  kitten @ --to "$to" send-key --match "id:$win" "${t#key:}" ;;
+    text:*) printf %s "${t#text:}" | kitten @ --to "$to" send-text --match "id:$win" --stdin ;;
+  esac || { echo "send failed at token '$t'" >&2; exit 1; }
+  sleep 0.3
+done
+
+sleep 1
+echo "Sent to $name. Screen now (last 15 lines):"
+screen | sed 's/[[:space:]]*$//' | grep -v '^$' | tail -n 15

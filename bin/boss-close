@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Close a worker's kitty window (which ends its claude session). Gated by an `ask` rule in
+# .claude/settings.json. Usage: boss-close <name>
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+name=${1:?usage: boss-close <name>}
+pid=$(pid_for "$name") || exit 1
+f=$(sess_file "$pid")
+to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
+[ -n "$to" ] || { echo "$name has no reachable kitty window; close it yourself" >&2; exit 1; }
+kitten @ --to "$to" close-window --match "id:$win" || exit 1
+for _ in $(seq 20); do is_claude "$pid" || break; sleep 0.5; done
+is_claude "$pid" && { echo "window closed, but claude pid $pid is still running" >&2; exit 1; }
+# The SessionEnd hook normally logs "ended" and drops the entry first; cover the case where it didn't run.
+[ -f "$f" ] && { emit "$pid" "$name" ended "window closed by the boss"; rm -f "$f"; }
+echo "Closed $name."

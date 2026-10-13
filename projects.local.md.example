@@ -1,0 +1,10 @@
+# Project index (local)
+
+Imported by `CLAUDE.md`. Copy this file to `projects.local.md` (gitignored) and list the folders the boss coordinates. The session name is the folder name.
+
+| Name | Path | What it is | Repo |
+|---|---|---|---|
+| boss | `~/projects/boss/` | This project: the coordinating session | none |
+| farmer | `~/projects/farmer/` | Python bot for the game *Farmer Was Replaced* | CommanderBosko/farmer |
+
+Most code projects keep their current status in `project-state.md` and/or `session-summary.md` at their root. Read those first for "where did we leave off" questions.

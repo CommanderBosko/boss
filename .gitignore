@@ -1,0 +1,12 @@
+# Machine-local config: names private repos and family projects
+projects.local.md
+colors.conf
+
+# Claude Code per-user settings
+.claude/settings.local.json
+
+.env
+*.log
+*.tmp.*
+.idea/
+.vscode/

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# SessionStart hook for sessions launched in ~/projects/boss (wired in .claude/settings.json).
+# Claims the boss marker if no live boss holds it, registers every running claude session,
+# labels their windows, and hands the boss its starting state as additionalContext.
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+src=$(jq -r '.source // "startup"' 2>/dev/null) || src=startup
+me=$(claude_pid_of $$) || exit 0
+mkdir -p "$SESS_DIR"; touch "$EVENTS"
+
+out() { jq -n --arg ctx "$1" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'; exit 0; }
+
+held=$(boss_pid) || held=""
+if [ -n "$held" ] && [ "$held" != "$me" ]; then
+  out "[boss-init] Another boss is already running (claude pid $held, address $(peer_addr "$held")). You are NOT the boss: do not arm the watcher, label windows, relay, or run the boss-send-keys/boss-spawn/boss-close scripts. Work as a normal session in this folder."
+fi
+
+echo "$me" >"$STATE_DIR/boss.pid.tmp" && mv "$STATE_DIR/boss.pid.tmp" "$STATE_DIR/boss.pid"
+discover
+label "$me"
+
+unbriefed=$(jq -r 'select(.briefed == false) | "- \(.name): \(.addr)"' "$SESS_DIR"/*.json 2>/dev/null)
+ctx="[boss-init] You are THE BOSS (claude pid $me, session source: $src). Follow the Boss role section of CLAUDE.md.
+
+Current sessions:
+$("$BOSS_DIR/bin/boss-status")
+
+Do now, before anything else:
+1. Arm the watcher: Monitor with command \"$BOSS_DIR/bin/boss-watch\", description \"boss: worker events\", timeout_ms 1800000. If it exits at once with no output, a watcher from before a /clear is still running; that's fine."
+if [ -n "$unbriefed" ]; then
+  ctx+="
+2. These sessions started before you and have not been briefed. Send each one its brief (the output of \`bin/boss-brief <name>\`) with SendMessage to its address, then run \`bin/boss-mark-briefed <name>\`:
+$unbriefed"
+fi
+out "$ctx"

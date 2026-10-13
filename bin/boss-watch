@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Event stream for the boss's Monitor: one line per event the boss must act on.
+# Single instance: exits silently if another watcher already holds the lock.
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+mkdir -p "$STATE_DIR"; touch "$EVENTS"
+exec 8>"$STATE_DIR/watch.lock"
+flock -n 8 || exit 0
+tail -n0 -F "$EVENTS" 2>/dev/null | jq --unbuffered -r '
+  select(.event | IN("waiting", "resolved", "finished", "new", "ended", "clear", "compact"))
+  | "[\(.name)] \(.event): \(.summary | .[0:300])"'

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Re-apply tab title, tab color and background tint. Usage: boss-label [name...]  (default: all)
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+discover
+if [ $# -eq 0 ]; then
+  for f in "$SESS_DIR"/*.json; do [ -f "$f" ] && label "$(basename "$f" .json)"; done
+  bp=$(boss_pid) && label "$bp"
+else
+  for n in "$@"; do pid=$(pid_for "$n") && label "$pid"; done
+fi

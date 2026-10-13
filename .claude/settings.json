@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/bin/boss-init", "timeout": 20 } ] }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(/home/bosko/projects/boss/bin/boss-send-keys *)",
+      "Bash(bin/boss-send-keys *)"
+    ],
+    "ask": [
+      "Bash(*boss-spawn *)",
+      "Bash(*boss-close *)",
+      "Bash(*send-text*)",
+      "Bash(*send-key *)",
+      "Bash(*close-window*)",
+      "Bash(*kitten @*launch*)",
+      "Bash(*kitty @*launch*)",
+      "Bash(*kitty --detach*)"
+    ]
+  }
+}

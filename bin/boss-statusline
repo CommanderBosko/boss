@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Claude Code status line (wired for bosko by dotfiles/bosko/claude-hm/settings.nix):
+# the session's name in its folder color, plus a waiting count when this is the boss.
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+cwd=$(jq -r '.workspace.current_dir // .cwd // empty' 2>/dev/null)
+me=$(claude_pid_of $$) || me=""
+name=""
+[ -n "$me" ] && [ -f "$(sess_file "$me")" ] && name=$(jq -r .name "$(sess_file "$me")")
+[ -n "$name" ] || name=$(base_name "${cwd:-$PWD}")
+h=$(color_for "$name"); h=${h#\#}
+printf '\033[1;38;2;%d;%d;%dm■ %s\033[0m' "0x${h:0:2}" "0x${h:2:2}" "0x${h:4:2}" "$name"
+if [ -n "$me" ] && [ "$me" = "$(boss_pid)" ]; then
+  shopt -s nullglob
+  files=("$SESS_DIR"/*.json)
+  w=0; [ ${#files[@]} -gt 0 ] && w=$(jq -s '[.[] | select(.state == "waiting")] | length' "${files[@]}")
+  printf ' · %d workers' "${#files[@]}"
+  [ "$w" -gt 0 ] && printf ' · \033[1;31m%d waiting on you\033[0m' "$w"
+fi
+echo

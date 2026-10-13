@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Roll-up: one line per live worker claude process (the boss itself is not listed).
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+discover
+now=$(date +%s)
+shopt -s nullglob
+files=("$SESS_DIR"/*.json)
+[ ${#files[@]} -eq 0 ] && { echo "(no worker sessions running)"; exit 0; }
+{
+  printf 'NAME\tSTATE\tFOR\tFOLDER\tWINDOW\tDETAIL\n'
+  jq -r --argjson now "$now" '
+    def ago: ($now - .) as $s | if $s < 90 then "\($s)s" elif $s < 5400 then "\($s / 60 | floor)m" else "\($s / 3600 | floor)h" end;
+    [.name, .state, (.since | ago), (.cwd | sub("^/home/[^/]+"; "~")),
+     (if .kitty then "kitty" else "no kitty" end),
+     (if .pending then "waiting on \(.pending.kind)" + (if .pending.input.command then ": \(.pending.input.command)" else "" end)
+      elif .task then "last task: \(.task)" else "" end)
+    ] | @tsv' "${files[@]}" | sort
+} | column -t -s $'\t'

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Print the briefing for a worker, for the boss to send via SendMessage. Usage: boss-brief <name>
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+pid=$(pid_for "${1:?usage: boss-brief <name>}") || exit 1
+echo "to: $(peer_addr "$pid")"
+echo
+brief_text "$pid"

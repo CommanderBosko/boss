@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Read-only: the last N lines currently on a worker's kitty screen. Usage: boss-screen <name> [lines]
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+pid=$(pid_for "${1:?usage: boss-screen <name> [lines]}") || exit 1
+f=$(sess_file "$pid")
+to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
+[ -n "$to" ] || { echo "$1 has no reachable kitty window (kitty without remote control, or not in kitty)" >&2; exit 1; }
+kitten @ --to "$to" get-text --match "id:$win" --extent screen | sed 's/[[:space:]]*$//' | grep -v '^$' | tail -n "${2:-40}"

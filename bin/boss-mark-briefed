@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Record that a worker has been briefed. Usage: boss-mark-briefed <name>
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+pid=$(pid_for "${1:?usage: boss-mark-briefed <name>}") || exit 1
+sess_update "$pid" '.briefed = true' && echo "marked $1 briefed"

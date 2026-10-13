@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Global Claude Code hook, wired for every session by the NixOS managed policy
+# (modules/claude-code.nix). Inert unless a boss is alive: it then keeps this session's
+# registry entry current, logs the events the boss cares about, and briefs workers on
+# SessionStart. Prints nothing except SessionStart's additionalContext.
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+
+bpid=$(boss_pid) || { cat >/dev/null; exit 0; }
+input=$(cat)
+cpid=${BOSS_HOOK_PID:-$(claude_pid_of $$)} || exit 0  # override is for tests only
+[ "$cpid" = "$bpid" ] && exit 0
+# Fast path for the hottest event (every tool call): nothing to do if already marked working.
+[[ $input =~ \"hook_event_name\":\ ?\"PostToolUse\" ]] && grep -q '"state": "working"' "$(sess_file "$cpid")" 2>/dev/null && exit 0
+
+j() { jq -r "$1" <<<"$input"; }
+event=$(j .hook_event_name)
+new=0; [ -f "$(sess_file "$cpid")" ] || new=1
+f=$(register "$cpid") || exit 0
+name=$(jq -r .name "$f")
+now=$(date +%s)
+sess_update "$cpid" --arg sid "$(j '.session_id // empty')" --arg tp "$(j '.transcript_path // empty')" --argjson now "$now" \
+  '.updated = $now | (if $sid != "" then .session_id = $sid else . end) | (if $tp != "" then .transcript = $tp else . end)'
+
+set_state() { # set_state <state> [pending-json]
+  sess_update "$cpid" --arg s "$1" --argjson p "${2:-null}" --argjson now "$now" \
+    '(if .state != $s then .since = $now else . end) | .state = $s | .pending = $p'
+}
+
+case $event in
+  SessionStart)
+    src=$(j .source)
+    # boss-spawn registers its window before this hook runs, so a fresh start can already have a file.
+    [ "$src" = startup ] && new=1
+    [ "$new" = 1 ] && emit "$cpid" "$name" new "started in $(jq -r .cwd "$f")"
+    [ "$new" = 0 ] && [ "$src" != resume ] && emit "$cpid" "$name" "$src" "context was reset (/$src); briefing re-injected"
+    set_state idle
+    sess_update "$cpid" '.briefed = true'
+    label "$cpid"
+    jq -n --arg ctx "$(brief_text "$cpid")" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
+    ;;
+  UserPromptSubmit)
+    set_state working
+    # A relayed boss message arrives wrapped in <cross-session-message ...> tags; keep only its text.
+    sess_update "$cpid" --arg t "$(j '.prompt // "" | gsub("</?cross-session-message[^>]*>"; "") | gsub("\\s+"; " ") | ltrimstr(" ") | rtrimstr(" ") | .[0:120]')" '.task = $t'
+    ;;
+  PreToolUse)
+    tool=$(j .tool_name)
+    kind=menu; [ "$tool" = ExitPlanMode ] && kind=plan
+    pending=$(jq -c --arg k "$kind" '{kind: $k, tool: .tool_name, input: .tool_input}' <<<"$input")
+    set_state waiting "$pending"
+    if [ "$kind" = menu ]; then
+      summary=$(jq -r '.tool_input.questions // [] | map("\(.question) [\(.options | map(.label) | join(" / "))]") | join(" | ")' <<<"$input")
+    else
+      summary="plan approval: $(jq -r '.tool_input.plan // "" | split("\n") | map(select(test("\\S"))) | .[0] // "(no plan text)"' <<<"$input")"
+    fi
+    emit "$cpid" "$name" waiting "$summary"
+    ;;
+  PermissionRequest)
+    # Menus and plans were already announced, with full details, by PreToolUse.
+    [ "$(jq -r .state "$f")" = waiting ] && [ "$(j .tool_name)" = "$(jq -r '.pending.tool // empty' "$f")" ] && exit 0
+    pending=$(jq -c '{kind: "permission", tool: .tool_name, input: .tool_input}' <<<"$input")
+    set_state waiting "$pending"
+    emit "$cpid" "$name" waiting "permission: $(jq -r '"\(.tool_name): \(.tool_input.command // .tool_input.file_path // .tool_input.url // (.tool_input | tostring)) " | .[0:200]' <<<"$input")"
+    ;;
+  Notification)
+    case $(j '.notification_type // empty') in
+      permission_prompt|elicitation_dialog)
+        # PermissionRequest/PreToolUse usually got here first with the exact details; only fill gaps.
+        if [ "$(jq -r .state "$f")" != waiting ]; then
+          set_state waiting "$(jq -c '{kind: (.notification_type), message: .message}' <<<"$input")"
+          emit "$cpid" "$name" waiting "$(j .message)"
+        fi
+        ;;
+    esac
+    ;;
+  PostToolUse)
+    # Also how a turn started by a relayed boss message (no UserPromptSubmit) shows as working.
+    case $(jq -r .state "$f") in
+      waiting) set_state working; emit "$cpid" "$name" resolved "$(j .tool_name) went ahead" ;;
+      working) ;;
+      *) set_state working ;;
+    esac
+    ;;
+  Stop)
+    was=$(jq -r .pending.kind "$f")
+    set_state idle
+    emit "$cpid" "$name" finished "$(jq -r '.task // "turn ended"' "$f")$([ "$was" != null ] && echo " (a $was was still open)")"
+    ;;
+  SessionEnd)
+    # /clear ends the old session but the process (and its window) lives on; SessionStart follows.
+    [ "$(j '.reason // empty')" = clear ] && exit 0
+    to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
+    [ -n "$to" ] && unlabel "$to" "$win"
+    emit "$cpid" "$name" ended "session ended ($(j '.reason // "exit"'))"
+    rm -f "$f"
+    ;;
+esac
+exit 0

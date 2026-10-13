@@ -1,0 +1,7 @@
+# Per-folder label colors: <folder name> <#rrggbb>. Used for the tab bar, the background tint
+# (14% of this color over black) and the status line. Folders not listed get a hashed color
+# from the palette in bin/lib.sh. The boss is always gold (#ffd700), so avoid yellows near it.
+# Copy this file to colors.conf (gitignored) and list your own folders.
+NixOS                  #e6194b
+farmer                 #bfef45
+screeps                #4363d8

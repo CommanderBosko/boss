@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Open a new kitty OS window (its own kitty process) running claude in a project folder.
+# Gated by an `ask` rule in .claude/settings.json. Usage: boss-spawn <folder-name|path>
+# A bare name resolves to ~/projects/<name>, then ~/projects/*/<name>, then ~/<name>.
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+arg=${1:?usage: boss-spawn <folder-name|path>}
+if [ -d "$arg" ]; then dir=$arg
+else
+  dir=""
+  for c in "$HOME/projects/$arg" "$HOME"/projects/*/"$arg" "$HOME/$arg"; do
+    [ -d "$c" ] && { dir=$c; break; }
+  done
+  [ -n "$dir" ] || { echo "no folder named '$arg' under ~/projects or ~" >&2; exit 1; }
+fi
+dir=$(cd "$dir" && pwd -P)
+[ "$dir" = "$BOSS_DIR" ] && { echo "refusing to spawn a second claude in the boss folder" >&2; exit 1; }
+
+# The boss's own CLAUDE* variables must not leak into the new session. Inheriting
+# CLAUDE_CODE_CHILD_SESSION, CLAUDE_CODE_MESSAGING_SOCKET/TOKEN and CLAUDE_CODE_SESSION_ID makes it
+# a "child" of the boss: no transcript, and no peer identity of its own.
+while IFS= read -r v; do unset "$v"; done < <(compgen -e | grep -E '^CLAUDE')
+
+# Remote control is passed explicitly so the window is reachable even if kitty.conf lacks it.
+before=$(pgrep -x claude | sort)
+kitty --detach --directory "$dir" -o allow_remote_control=socket-only -o tab_bar_min_tabs=1 \
+  --listen-on "unix:$RUN_DIR/kitty-{kitty_pid}" claude
+for _ in $(seq 20); do
+  sleep 0.5
+  new=$(comm -13 <(echo "$before") <(pgrep -x claude | sort) | head -1)
+  [ -n "$new" ] && break
+done
+[ -n "${new:-}" ] || { echo "kitty launched, but no new claude process appeared within 10s" >&2; exit 1; }
+f=$(register "$new") && label "$new"
+echo "Spawned $(jq -r .name "$f") (claude pid $new) in $dir"

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Full detail of what a worker is blocked on: menu questions and options, plan text, or the
+# exact tool call awaiting permission. Usage: boss-pending <name>
+set -u
+. "$(dirname "$(readlink -f "$0")")/lib.sh"
+pid=$(pid_for "${1:?usage: boss-pending <name>}") || exit 1
+jq -r '
+  if .pending == null then "\(.name) is not waiting on anything (state: \(.state))."
+  elif .pending.kind == "menu" then
+    .pending.input.questions | to_entries | map(
+      "Q\(.key + 1) [\(.value.header // "")]\(if .value.multiSelect then " (multi-select)" else "" end): \(.value.question)\n"
+      + (.value.options | to_entries | map("  \(.key + 1). \(.value.label) - \(.value.description // "")") | join("\n"))
+    ) | join("\n\n")
+  elif .pending.kind == "plan" then "PLAN:\n\(.pending.input.plan // "(no plan text)")"
+  elif .pending.kind == "permission" then
+    if .pending.tool then "PERMISSION for \(.pending.tool):\n\(.pending.input | if .command then .command else tostring end)"
+    else "PERMISSION: \(.pending.message)" end
+  else "\(.pending.kind): \(.pending.message // (.pending | tostring))" end' "$(sess_file "$pid")"
