@@ -59,6 +59,7 @@ State lives in `$XDG_RUNTIME_DIR/claude-boss/`: `boss.pid`, the `sessions/<pid>.
 
 ## Recent Changes
 
+- **2026-10-13 (evening)**: no code changes. The boss relayed the NixOS worker's audit fixes through to a push, and relayed its first `/clear`.
 - **2026-10-13**: spawn and close take several names behind one prompt. The band became a project-scoped plugin, so restarts no longer drop it. Added the `boss-acceptance` skill and recorded a second acceptance run. Read-only boss scripts no longer prompt. Added a `secret-scan` skill.
 
 ## License
