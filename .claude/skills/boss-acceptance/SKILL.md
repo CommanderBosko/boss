@@ -43,7 +43,7 @@ Pass when the worker's reply matches what the user picked. Judge whether a promp
 **Already answered.** Send **P-4d** to the other worker. When its `waiting` event arrives, ask the user to answer it in that worker's own window and tell you when it's done. Then run `bin/boss-send-keys <name> '❯ 1. Red' key:enter`. Pass is `NOT SENT` with exit 3.
 
 ### 6. Item 5 and item 8: spawn and close
-There are four native prompts, strictly one per message. Right before each, give one bold line, e.g. **Prompt 1 of 4, spawning `farmer`: DENY this one.** Before each deny, also tell the user to type "continue" afterwards.
+There are four native prompts, strictly one per message. Right before each, give one bold line, e.g. **Prompt 1 of 4, spawning `farmer`: DENY this one.** Put the same instruction in the Bash call's `description`, e.g. `DENY THIS ONE (prompt 1 of 4): spawn farmer`, since the native dialog shows the description. Before each deny, also tell the user to type "continue" afterwards.
 1. `bin/boss-spawn farmer`, denied. Pass: no new pid in `pgrep -x claude`, and no `new` event.
 2. `bin/boss-spawn farmer`, approved. Pass: a `new` event for `farmer-2`, and `check-registry.sh` passes with `farmer-2` on farmer's background.
 3. `bin/boss-close farmer-2`, denied. Pass: it's still in `bin/boss-status`.

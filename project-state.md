@@ -4,6 +4,10 @@ The scope is `docs/project-brief.md`, and its definition of done is the acceptan
 
 ## Current Project State
 
+**2026-10-17: item 5 re-run passes; Haiku stays the boss model**
+- **Acceptance item 5 passes** (`docs/acceptance-2026-10-17.md`): every spawn and close raised the native prompt. The one surprise was a misclicked approval on prompt 1, so the 2026-10-13 first spawn was most likely the same. Putting "DENY THIS ONE" / "APPROVE THIS ONE" in the Bash description, which the native dialog shows, fixed it for the rest of the run.
+- **Haiku stays the boss's model** (the user's call, 2026-10-17). The 2026-10-13 Haiku trial was that day's acceptance run (session `9c1087df`, all Haiku). The user switches to Opus with `/model` for coding work on this project.
+
 **2026-10-13 (evening): relay-only session, NixOS audit fixes landed, no boss code changes**
 - **NixOS audit fixes are pushed:** at the user's go-ahead, the NixOS worker pushed `27eb91f` and `79607cc` (`c1ba380..79607cc`), then ran its own session close as `58a01b7`. All three are on `origin/main`, checked with a fetch. `79607cc` (global skills) isn't live until a rebuild-switch on the gaming machine; that's the user's to run.
 - **The usage limit didn't corrupt the NixOS work.** Six of its ten fix sub-agents died on the 429. After the reset the worker re-ran them before committing. The boss checked all 116 changed files (`bash -n`, frontmatter, `hosts.json` parses, no conflict markers), confirmed each failed slice has changes in the commits, and spot-checked two fixes.
@@ -23,7 +27,7 @@ The scope is `docs/project-brief.md`, and its definition of done is the acceptan
 **Short-term (next 1-3 sessions)**
 - Confirm the band appears on its own after a fresh boss start.
 - Decide whether the idle footer becomes a verified fallback guard for `/clear` in Known keys.
-- Close the acceptance loose ends: re-run item 5's denied first spawn with the boss watching, and time item 9's 30-second limit.
+- Close the last acceptance loose end: time item 9's 30-second limit.
 
 **Long-term**
 - Keep the boss passing `docs/project-brief.md` across Claude Code upgrades. Run `/boss-acceptance` after each upgrade, and update **Known keys** when the version changes.
@@ -42,7 +46,7 @@ The scope is `docs/project-brief.md`, and its definition of done is the acceptan
 
 ## Known Issues / Tech Debt
 
-- **Acceptance item 5, first spawn:** the first `bin/boss-spawn farmer` of the 2026-10-13 run opened a window with no recorded deny step. The later prompts worked, so the lock holds, but that one prompt is unaccounted for.
+- **The auto-mode classifier sometimes blocks read-only checks** (2026-10-17): `check-registry.sh` and `pgrep -x claude` were refused as "Interfere With Workloads" right after an approved close. Allowlisting `check-registry.sh` would fix it if it recurs.
 - **Identical messages get dropped as duplicates:** repeating the exact same text to a worker over SendMessage can be dropped. Reword a repeat request.
 - **Item 9's 30-second limit** has not been timed.
 - **`/clear` guard when the idle hint is missing:** Known keys only lists `new task? /clear to save`. On 2026-10-13 it wasn't shown, and the idle footer `(shift+tab to cycle) · ← 1 agent` worked instead. The footer text depends on the worker's mode and agent count, so it isn't in Known keys yet. The user was offered the change and hasn't answered.
@@ -59,5 +63,5 @@ The scope is `docs/project-brief.md`, and its definition of done is the acceptan
 1. On the next fresh boss start, check that the band shows worker rows without `/reload-plugins`.
 2. Ask whether to add the idle footer to Known keys as a fallback `/clear` guard, and what to match so it doesn't depend on the agent count.
 3. Ask whether to set the boss's Repo column in `projects.local.md` to `CommanderBosko/boss`.
-4. Re-run acceptance item 5 (denied first spawn) and time item 9, then record them in a dated `docs/acceptance-*.md`.
+4. Time acceptance item 9, then record it in a dated `docs/acceptance-*.md`.
 5. Remind the user that NixOS `79607cc` (global skills) needs a rebuild-switch on the gaming machine before it's live.
