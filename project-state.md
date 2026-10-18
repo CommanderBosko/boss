@@ -4,7 +4,10 @@ The scope is `docs/project-brief.md`, and its definition of done is the acceptan
 
 ## Current Project State
 
-**2026-10-17: item 5 re-run passes; Haiku stays the boss model**
+**2026-10-18: the boss's model is now Sonnet (the user's call), replacing the Haiku decision of 2026-10-17**
+- **The project model is `sonnet`** (`.claude/settings.json`). The user switches to Opus with `/model` for coding work on this project.
+
+**2026-10-17: item 5 re-run passes; Haiku stayed the boss model (superseded 2026-10-18)**
 - **Acceptance item 5 passes** (`docs/acceptance-2026-10-17.md`): every spawn and close raised the native prompt. The one surprise was a misclicked approval on prompt 1, so the 2026-10-13 first spawn was most likely the same. Putting "DENY THIS ONE" / "APPROVE THIS ONE" in the Bash description, which the native dialog shows, fixed it for the rest of the run.
 - **Haiku stays the boss's model** (the user's call, 2026-10-17). The 2026-10-13 Haiku trial was that day's acceptance run (session `9c1087df`, all Haiku). The user switches to Opus with `/model` for coding work on this project.
 
@@ -42,7 +45,7 @@ The scope is `docs/project-brief.md`, and its definition of done is the acceptan
 - **Read-only boss scripts are allowlisted** (`boss-screen`, `boss-pending`, `boss-status`, plus the git-commit/push `status` calls), so relays stop prompting. The `ask` rules on spawn, close and raw kitty commands are untouched.
 - **Audit fixes for other repos go to that repo's worker.** The boss fixed only its own `boss-acceptance` and handed the NixOS and global-skill findings to the NixOS worker, with the full list in `~/.claude/improve-system/audit-findings-20261013.md`.
 - **"`<name>`: close session" is a relay, "close `<name>`" closes the window** (2026-10-13). The first goes to the worker as an instruction, which runs its session-closer. The second runs `bin/boss-close`. When the wording is ambiguous, relay it and say how to get the other meaning.
-- **The project model is `haiku`** (`.claude/settings.json`). The user switches models with `/model` for heavier work.
+- **The project model is `sonnet`** (`.claude/settings.json`, changed from `haiku` on 2026-10-18). The user switches models with `/model` for heavier work.
 
 ## Known Issues / Tech Debt
 

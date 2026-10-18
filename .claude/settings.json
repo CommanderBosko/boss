@@ -23,7 +23,7 @@
       "Bash(*kitty --detach*)"
     ]
   },
-  "model": "haiku",
+  "model": "sonnet",
   "hooks": {
     "SessionStart": [
       {
