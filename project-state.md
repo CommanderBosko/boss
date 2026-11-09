@@ -28,7 +28,6 @@ The scope is `docs/project-brief.md`, and its definition of done is the acceptan
 ## Current Goals
 
 **Short-term (next 1-3 sessions)**
-- Confirm the band appears on its own after a fresh boss start.
 - Decide whether the idle footer becomes a verified fallback guard for `/clear` in Known keys.
 - Close the last acceptance loose end: time item 9's 30-second limit.
 
@@ -38,7 +37,8 @@ The scope is `docs/project-brief.md`, and its definition of done is the acceptan
 
 ## Recent Decisions
 
-- **The band loads as a project-scoped plugin, not a hot-reload mod** (2026-10-13). Hot-reload mod folders are keyed by session id, so every boss restart dropped the band. Rejected: a `--plugin-dir` launcher (`bin/boss-claude`, since deleted) and a `~/.zshrc` wrapper (the auto-mode classifier blocked that edit as unauthorized persistence). Also rejected: `CLAUDE_CODE_PLUGIN_DIRS` in global settings, which would load the band in every worker, each polling for a missing `bin/boss-rows` every 2s. Edits to `mods/boss-band/` need only `/reload-plugins`. Never copy the plugin into a hot-reload folder too, or it loads twice.
+- **The band is removed** (2026-11-09). herdr's sidebar shows every agent's state, so the user dropped the `boss-band` plugin, the folder marketplace and `bin/boss-rows`. The entry below is kept for history.
+- **The band loads as a project-scoped plugin, not a hot-reload mod** (2026-10-13, superseded 2026-11-09). Hot-reload mod folders are keyed by session id, so every boss restart dropped the band. Rejected: a `--plugin-dir` launcher (`bin/boss-claude`, since deleted) and a `~/.zshrc` wrapper (the auto-mode classifier blocked that edit as unauthorized persistence). Also rejected: `CLAUDE_CODE_PLUGIN_DIRS` in global settings, which would load the band in every worker, each polling for a missing `bin/boss-rows` every 2s. Edits to `mods/boss-band/` need only `/reload-plugins`. Never copy the plugin into a hot-reload folder too, or it loads twice.
 - **Batch spawn/close behind one approval, one name per line** (the user's preference, 2026-10-13). Per-prompt spawning is only for tests that need some prompts denied.
 - **Suggest `/clear`, never run it** (the user's preference, 2026-10-13). Suggest it when a worker's idle hint shows tokens to save. Clear a session only when the user asks.
 - **`boss-acceptance` takes guards from CLAUDE.md's Known keys** instead of its own table, so the two can't drift. Its step 10 edit to Known keys is kept as its one non-docs edit. That was chosen over dropping the edit, because the edit records what the run verified.
@@ -59,12 +59,11 @@ The scope is `docs/project-brief.md`, and its definition of done is the acceptan
 - **Absolute paths** to `/home/bosko/projects/boss` in `.claude/settings.json` (marketplace path, allowlist) tie the repo to this machine's layout.
 - **`.gitignore` lacks `*.pem` and `*.key`.** Informational: the secret scan notes it, and nothing like that is in the repo.
 - **`projects.local.md` lists the boss repo as "none"**, but it now has a public GitHub remote (`CommanderBosko/boss`). The user hasn't said whether to update that gitignored file.
-- **An orphaned band copy** sits in `~/.claude/dev-mods/96a9575b…/`. Nothing loads it.
+- **An orphaned band copy** sits in `~/.claude/dev-mods/96a9575b…/`. Nothing loads it, and since the band was removed on 2026-11-09 it can be deleted.
 
 ## Next Steps
 
-1. On the next fresh boss start, check that the band shows worker rows without `/reload-plugins`.
-2. Ask whether to add the idle footer to Known keys as a fallback `/clear` guard, and what to match so it doesn't depend on the agent count.
-3. Ask whether to set the boss's Repo column in `projects.local.md` to `CommanderBosko/boss`.
-4. Time acceptance item 9, then record it in a dated `docs/acceptance-*.md`.
-5. Remind the user that NixOS `79607cc` (global skills) needs a rebuild-switch on the gaming machine before it's live.
+1. Ask whether to add the idle footer to Known keys as a fallback `/clear` guard, and what to match so it doesn't depend on the agent count.
+2. Ask whether to set the boss's Repo column in `projects.local.md` to `CommanderBosko/boss`.
+3. Time acceptance item 9, then record it in a dated `docs/acceptance-*.md`.
+4. Remind the user that NixOS `79607cc` (global skills) needs a rebuild-switch on the gaming machine before it's live.

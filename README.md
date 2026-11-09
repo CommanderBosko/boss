@@ -4,12 +4,11 @@ A coordinator for running many Claude Code sessions at once. Any `claude` opened
 
 ## Current Status
 
-Everything in the definition of done (`docs/project-brief.md`) is live. The 2026-10-13 acceptance run re-verified it, with item 5 marked partial: one spawn prompt went unrecorded. The band above the boss's prompt now loads as a project-scoped plugin. See `project-state.md` for what's pending and `session-summary.md` for the session log.
+Everything in the definition of done (`docs/project-brief.md`) is live. The 2026-10-13 acceptance run re-verified it, with item 5 marked partial: one spawn prompt went unrecorded. Workers in herdr are reached through the herdr CLI, and herdr's sidebar replaced the old band of worker rows. See `project-state.md` for what's pending and `session-summary.md` for the session log.
 
 ## What it does
 
 - **Status**: one line per live `claude` process, showing its name, folder, and whether it is working, idle or waiting on you.
-- **The band**: a live row per worker above the boss's prompt, showing its color, state, time in that state, and task.
 - **Two-way relay**: `<name>: <instruction>` goes to that session over Claude Code's peer messaging (SendMessage), and its reply comes back to the boss.
 - **Blocked-worker relay**: AskUserQuestion menus, plan approvals and permission prompts are shown in the boss with their exact text and options. The boss re-reads the worker's screen and presses the keys you chose, and it sends nothing if the prompt is already gone.
 - **Labels**: a colored status line for every session. In herdr, the tab (or pane) label. In kitty, the tab title, tab color and a subtle background tint.
@@ -25,7 +24,6 @@ The boss never does project work and never auto-approves anything. See `docs/pro
 - The [herdr](https://herdr.dev/) CLI for labels, screen reads, keypresses, spawn and close, for workers in herdr panes
 - [kitty](https://sw.kovidgoyal.net/kitty/) remote control (`kitten @`) for the same, for workers in plain kitty windows
 - Claude Code hooks, peer messaging (ListAgents/SendMessage) and the Monitor tool
-- A Claude Code plugin (TypeScript/TSX) for the band, in `mods/boss-band/`
 - Linux `/proc` for discovering `claude` processes
 
 ## Setup
@@ -36,8 +34,7 @@ The boss never does project work and never auto-approves anything. See `docs/pro
 4. Optionally, set `bin/boss-statusline` as the Claude Code status line.
 5. Copy `projects.local.md.example` to `projects.local.md` and `colors.conf.example` to `colors.conf`, then fill in your own projects and colors. Both copies are gitignored.
 
-`.claude/settings.json` in this folder wires `bin/boss-init` as the SessionStart hook and carries the approval lock: `ask` rules on `boss-spawn`, `boss-close` and raw `kitten @` send/launch/close commands. It also registers this repo as a folder plugin marketplace (`.claude-plugin/marketplace.json`) and enables the `boss-band` plugin at project scope, so the band loads only in sessions started here. After editing `mods/boss-band/`, run `/reload-plugins`.
-
+`.claude/settings.json` in this folder wires `bin/boss-init` as the SessionStart hook and carries the approval lock: `ask` rules on `boss-spawn`, `boss-close` and raw `kitten @` send/launch/close commands.
 ## Usage
 
 Open `claude` in this folder. `bin/boss-init` claims the boss role. A second `claude` opened here while a boss is alive works as a normal session. Then talk to the boss:
@@ -53,7 +50,6 @@ State lives in `$XDG_RUNTIME_DIR/claude-boss/`: `boss.pid`, the `sessions/<pid>.
 ## Project Structure
 
 - `bin/`: the boss scripts (`boss-hook`, `boss-init`, `boss-watch`, `boss-spawn`, `boss-close`, `boss-send-keys`, …) and the shared `lib.sh`
-- `mods/boss-band/`: the band plugin
 - `.claude/skills/`: `boss-acceptance` (re-runs the definition of done) and `secret-scan` (pre-push check)
 - `docs/`: the project brief and the dated acceptance runs
 - `CLAUDE.md`: the boss's operating rules, including the verified key mappings for each prompt type
