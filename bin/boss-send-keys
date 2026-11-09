@@ -7,30 +7,47 @@
 #             the question, which stays on screen once answered; if it's gone, nothing is sent
 #   <token>   key:<name>  (enter, escape, up, down, left, right, tab, space, backspace)
 #             text:<str>  (literal characters, e.g. text:1 to pick option 1)
+# Goes through herdr when the worker runs in a herdr pane, else through kitty.
 set -u
 . "$(dirname "$(readlink -f "$0")")/lib.sh"
 [ $# -ge 3 ] || { sed -n '5,10p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 name=$1 expect=$2; shift 2
 pid=$(pid_for "$name") || exit 1
 f=$(sess_file "$pid")
-to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
-[ -n "$to" ] || { echo "$name has no reachable kitty window; answer it there yourself" >&2; exit 1; }
+if ht=$(herdr_target "$pid"); then
+  sock=${ht% *} pane=${ht#* }
+else
+  sock="" to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
+  [ -n "$to" ] || { echo "$name has no reachable window; answer it there yourself" >&2; exit 1; }
+fi
 
 for t in "$@"; do
-  case $t in key:?*|text:?*) ;; *) echo "bad token '$t' (want key:<name> or text:<str>)" >&2; exit 2 ;; esac
+  case $t in
+    key:enter|key:escape|key:esc|key:up|key:down|key:left|key:right|key:tab|key:space|key:backspace|text:?*) ;;
+    *) echo "bad token '$t' (want key:<enter|escape|up|down|left|right|tab|space|backspace> or text:<str>)" >&2; exit 2 ;;
+  esac
 done
 
-screen() { kitten @ --to "$to" get-text --match "id:$win" --extent screen; }
+screen() { screen_text "$pid"; }
 if ! screen | grep -qF -- "$expect"; then
   echo "NOT SENT: '$expect' is no longer on $name's screen (answered already, or a different prompt)." >&2
   exit 3
 fi
 
 for t in "$@"; do
-  case $t in
-    key:*)  kitten @ --to "$to" send-key --match "id:$win" "${t#key:}" ;;
-    text:*) printf %s "${t#text:}" | kitten @ --to "$to" send-text --match "id:$win" --stdin ;;
-  esac || { echo "send failed at token '$t'" >&2; exit 1; }
+  k=${t#key:}; [ "$k" = escape ] && k=esc
+  if [ -n "$sock" ]; then
+    case $t in
+      key:*)  hd "$sock" pane send-keys "$pane" "$k" >/dev/null ;;
+      text:*) hd "$sock" pane send-text "$pane" "${t#text:}" >/dev/null ;;
+    esac
+  else
+    [ "$k" = esc ] && k=escape
+    case $t in
+      key:*)  kitten @ --to "$to" send-key --match "id:$win" "$k" ;;
+      text:*) printf %s "${t#text:}" | kitten @ --to "$to" send-text --match "id:$win" --stdin ;;
+    esac
+  fi || { echo "send failed at token '$t'" >&2; exit 1; }
   sleep 0.3
 done
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Open a new kitty OS window (its own kitty process) running claude in a project folder.
+# Start claude in a project folder: in a new herdr tab in the boss's own workspace when the boss runs
+# inside herdr, otherwise in a new kitty OS window (its own kitty process).
 # Gated by an `ask` rule in .claude/settings.json. Usage: boss-spawn <folder-name|path>...
 # A bare name resolves to ~/projects/<name>, then ~/projects/*/<name>, then ~/<name>.
 # Several folders spawn in one call, so the user approves them all with one prompt. A folder that
@@ -13,8 +14,24 @@ set -u
 # a "child" of the boss: no transcript, and no peer identity of its own.
 while IFS= read -r v; do unset "$v"; done < <(compgen -e | grep -E '^CLAUDE')
 
+in_herdr() { [ "${HERDR_ENV:-}" = 1 ] && [ -n "${HERDR_WORKSPACE_ID:-}" ] && [ -S "${HERDR_SOCKET_PATH:-}" ]; }
+
+# New tab (shell at its prompt, then claude) in the boss's workspace, without taking focus.
+# Prints "<tab id> <pane id>".
+herdr_launch() { # herdr_launch <dir>
+  local out tab pane
+  out=$(herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "$1" --label "$(base_name "$1")" --no-focus 2>&1) || {
+    echo "herdr tab create failed: $out" >&2; return 1; }
+  tab=$(jq -r '.result.tab.tab_id // empty' <<<"$out"); pane=$(jq -r '.result.root_pane.pane_id // empty' <<<"$out")
+  [ -n "$tab" ] && [ -n "$pane" ] || { echo "herdr tab create returned no tab/pane: $out" >&2; return 1; }
+  # Let the shell draw its prompt before typing into it.
+  herdr pane wait-output "$pane" --regex '\S' --timeout 10000 >/dev/null 2>&1
+  herdr pane run "$pane" claude >/dev/null || { echo "could not start claude in herdr pane $pane" >&2; herdr tab close "$tab" >/dev/null 2>&1; return 1; }
+  echo "$tab $pane"
+}
+
 spawn_one() {
-  local arg=$1 dir c before new f
+  local arg=$1 dir c before new f p pane="" launched
   if [ -d "$arg" ]; then dir=$arg
   else
     dir=""
@@ -26,19 +43,27 @@ spawn_one() {
   dir=$(cd "$dir" && pwd -P)
   [ "$dir" = "$BOSS_DIR" ] && { echo "refusing to spawn a second claude in the boss folder" >&2; return 1; }
 
-  # Remote control is passed explicitly so the window is reachable even if kitty.conf lacks it.
   before=$(pgrep -x claude | sort)
-  kitty --detach --directory "$dir" -o allow_remote_control=socket-only -o tab_bar_min_tabs=1 \
-    --listen-on "unix:$RUN_DIR/kitty-{kitty_pid}" claude
+  if in_herdr; then
+    launched=$(herdr_launch "$dir") || return 1
+    pane=${launched#* }
+  else
+    # Remote control is passed explicitly so the window is reachable even if kitty.conf lacks it.
+    kitty --detach --directory "$dir" -o allow_remote_control=socket-only -o tab_bar_min_tabs=1 \
+      --listen-on "unix:$RUN_DIR/kitty-{kitty_pid}" claude
+  fi
   new=""
   for _ in $(seq 20); do
     sleep 0.5
-    new=$(comm -13 <(echo "$before") <(pgrep -x claude | sort) | head -1)
+    for p in $(comm -13 <(echo "$before") <(pgrep -x claude | sort)); do
+      # In herdr, only the claude in the pane just made counts (another session may start meanwhile).
+      [ -z "$pane" ] || [ "$(proc_env "$p" HERDR_PANE_ID)" = "$pane" ] && { new=$p; break; }
+    done
     [ -n "$new" ] && break
   done
-  [ -n "$new" ] || { echo "kitty launched in $dir, but no new claude process appeared within 10s" >&2; return 1; }
+  [ -n "$new" ] || { echo "launched in $dir${pane:+ (herdr pane $pane)}, but no new claude process appeared within 10s" >&2; return 1; }
   f=$(register "$new") && label "$new"
-  echo "Spawned $(jq -r .name "$f") (claude pid $new) in $dir"
+  echo "Spawned $(jq -r .name "$f") (claude pid $new) in $dir${pane:+, herdr pane $pane}"
 }
 
 rc=0

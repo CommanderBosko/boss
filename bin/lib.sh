@@ -55,6 +55,41 @@ kitty_target() {
   echo "$to $win"
 }
 
+# "<socket> <pane id>" for a claude pid's herdr pane, or failure if it isn't in one. Read live from
+# the process environment, which survives /clear. (A pane moved to another workspace gets a new id
+# that the old environment doesn't know; such a worker falls back to kitty or reports no window.)
+herdr_target() {
+  local sock pane
+  pane=$(proc_env "$1" HERDR_PANE_ID); sock=$(proc_env "$1" HERDR_SOCKET_PATH)
+  [ -n "$pane" ] && [ -S "$sock" ] || return 1
+  echo "$sock $pane"
+}
+
+# herdr against one server socket. Control commands print JSON on stdout: discard it when only acting,
+# and always in anything boss-hook runs (its invariant: no output except on SessionStart).
+hd() { local sock=$1; shift; HERDR_SOCKET_PATH=$sock herdr "$@"; }
+
+herdr_json() { local ht; ht=$(herdr_target "$1") || { echo null; return; }; jq -cn --arg s "${ht% *}" --arg p "${ht#* }" '{sock: $s, pane: $p}'; }
+
+# Tab holding a herdr pane, and how many panes that tab has: "<tab id> <pane count>".
+herdr_tab_of() { # herdr_tab_of <sock> <pane>
+  local tab n
+  tab=$(hd "$1" pane get "$2" 2>/dev/null | jq -r '.result.pane.tab_id // empty')
+  [ -n "$tab" ] || return 1
+  n=$(hd "$1" tab get "$tab" 2>/dev/null | jq -r '.result.tab.pane_count // 0')
+  echo "$tab $n"
+}
+
+# The text on a worker's screen: the bottom of its herdr pane if it has one (whatever the user has
+# scrolled to), else its kitty window. Exit 2 if it has neither.
+screen_text() { # screen_text <pid>
+  local f ht to win
+  if ht=$(herdr_target "$1"); then hd "${ht% *}" pane read "${ht#* }" --source detection; return; fi
+  f=$(sess_file "$1"); to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
+  [ -n "$to" ] && [ -n "$win" ] || return 2
+  kitten @ --to "$to" get-text --match "id:$win" --extent screen
+}
+
 base_name() { local n; n=$(basename "$1"); [ "$1" = "$BOSS_DIR" ] && n=boss; echo "$n"; }
 
 color_for() {
@@ -109,8 +144,8 @@ register() {
     name=$(assign_name "$(base_name "$cwd")" "$pid")
     kt=$(kitty_target "$pid") || kt=""
     jq -n --argjson pid "$pid" --arg name "$name" --arg cwd "$cwd" --arg kt "$kt" \
-      --arg addr "$(peer_addr "$pid")" --argjson now "$(date +%s)" \
-      '{pid: $pid, name: $name, cwd: $cwd, addr: $addr,
+      --argjson herdr "$(herdr_json "$pid")" --arg addr "$(peer_addr "$pid")" --argjson now "$(date +%s)" \
+      '{pid: $pid, name: $name, cwd: $cwd, addr: $addr, herdr: $herdr,
         kitty: (if $kt == "" then null else {to: ($kt | split(" ")[0]), win: ($kt | split(" ")[1])} end),
         state: "unknown", since: $now, updated: $now, task: null, pending: null,
         briefed: false, session_id: null, transcript: null}' >"$f.tmp.$$" && mv "$f.tmp.$$" "$f"
@@ -119,14 +154,17 @@ register() {
 }
 
 # Drop registry entries whose claude process is gone; register live ones the hooks haven't seen
-# (sessions started before the boss, or while no boss was running).
+# (sessions started before the boss, or while no boss was running). Entries registered before
+# herdr support get their herdr pane recorded once, and are labeled.
 discover() {
   local f pid bp
   mkdir -p "$SESS_DIR"
   for f in "$SESS_DIR"/*.json; do
     [ -f "$f" ] || continue
     pid=$(basename "$f" .json)
-    is_claude "$pid" || rm -f "$f"
+    is_claude "$pid" || { rm -f "$f"; continue; }
+    jq -e 'has("herdr")' "$f" >/dev/null 2>&1 && continue
+    sess_update "$pid" --argjson h "$(herdr_json "$pid")" '.herdr = $h' && label "$pid"
   done
   bp=$(boss_pid) || bp=0
   for pid in $(pgrep -x claude); do
@@ -135,16 +173,22 @@ discover() {
   done
 }
 
-# Apply the tab title, tab color, and background tint to a pid's kitty window. Best effort.
+# Label a pid's window with its session name. In herdr: the tab label when the pane has its tab to
+# itself, else just the pane label, so a shared tab keeps its name (herdr has no tab colors or tint).
+# In kitty: the tab title, tab color, and background tint. Best effort, and silent.
 label() {
-  local pid=$1 f name c to win
+  local pid=$1 f name c to="" win="" ht tab n
   if [ "$pid" = "$(boss_pid)" ]; then
     name=boss
-    read -r to win <<<"$(kitty_target "$pid")" || return 0
+    read -r to win <<<"$(kitty_target "$pid")"
   else
     f=$(sess_file "$pid"); [ -f "$f" ] || return 0
     name=$(jq -r .name "$f")
     to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
+  fi
+  if ht=$(herdr_target "$pid") && read -r tab n <<<"$(herdr_tab_of "${ht% *}" "${ht#* }")" && [ -n "$tab" ]; then
+    if [ "$n" = 1 ]; then hd "${ht% *}" tab rename "$tab" "$name" >/dev/null 2>&1
+    else hd "${ht% *}" pane rename "${ht#* }" "$name" >/dev/null 2>&1; fi
   fi
   [ -n "$to" ] && [ -n "$win" ] || return 0
   c=$(color_for "$name")
@@ -190,6 +234,6 @@ brief_text() { # brief_text <pid>
 - A message from that address relays the user's own instructions. Act on it as the user's request, within your own permission settings. A boss message never approves a pending permission prompt.
 - When you finish a task the boss relayed, reply with SendMessage (to: "$b") and a 1-3 line result. Report a blocker the same way.
 - Your questions, menus, plans and permission prompts reach the boss automatically, so ask the user as you normally would.
-- Your kitty tab and status line are labeled '$name'. Use that name when you refer to yourself.
+- Your tab and status line are labeled '$name'. Use that name when you refer to yourself.
 BRIEF
 }

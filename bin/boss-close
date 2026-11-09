@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Close workers' kitty windows (which ends their claude sessions). Gated by an `ask` rule in
+# Close workers' windows, which ends their claude sessions: the herdr tab (or just the pane, if it
+# shares its tab) for a worker in herdr, else its kitty window. Gated by an `ask` rule in
 # .claude/settings.json. Usage: boss-close <name>...
 # Several names close in one call, so the user approves them all with one prompt. A name that
 # fails doesn't stop the rest; the exit status is 1 if any failed.
@@ -8,12 +9,19 @@ set -u
 [ $# -ge 1 ] || { echo "usage: boss-close <name>..." >&2; exit 2; }
 
 close_one() {
-  local name=$1 pid f to win
+  local name=$1 pid f to win ht tab n
   pid=$(pid_for "$name") || return 1
   f=$(sess_file "$pid")
-  to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
-  [ -n "$to" ] || { echo "$name has no reachable kitty window; close it yourself" >&2; return 1; }
-  kitten @ --to "$to" close-window --match "id:$win" || return 1
+  if ht=$(herdr_target "$pid"); then
+    read -r tab n <<<"$(herdr_tab_of "${ht% *}" "${ht#* }")"
+    [ -n "$tab" ] || { echo "$name's herdr pane ${ht#* } is gone from the server; close it yourself" >&2; return 1; }
+    if [ "$n" = 1 ]; then hd "${ht% *}" tab close "$tab" >/dev/null || return 1
+    else hd "${ht% *}" pane close "${ht#* }" >/dev/null || return 1; fi
+  else
+    to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
+    [ -n "$to" ] || { echo "$name has no reachable window; close it yourself" >&2; return 1; }
+    kitten @ --to "$to" close-window --match "id:$win" || return 1
+  fi
   for _ in $(seq 20); do is_claude "$pid" || break; sleep 0.5; done
   is_claude "$pid" && { echo "window closed, but claude pid $pid is still running" >&2; return 1; }
   # The SessionEnd hook normally logs "ended" and drops the entry first; cover the case where it didn't run.

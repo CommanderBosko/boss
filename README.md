@@ -12,8 +12,8 @@ Everything in the definition of done (`docs/project-brief.md`) is live. The 2026
 - **The band**: a live row per worker above the boss's prompt, showing its color, state, time in that state, and task.
 - **Two-way relay**: `<name>: <instruction>` goes to that session over Claude Code's peer messaging (SendMessage), and its reply comes back to the boss.
 - **Blocked-worker relay**: AskUserQuestion menus, plan approvals and permission prompts are shown in the boss with their exact text and options. The boss re-reads the worker's screen and presses the keys you chose, and it sends nothing if the prompt is already gone.
-- **Labels**: kitty tab title, tab color, a subtle background tint, and a colored status line for every session.
-- **Spawn and close**: opens or closes worker windows only after Claude Code's own permission prompt gets your yes. Several sessions can go in one call, behind one prompt.
+- **Labels**: a colored status line for every session. In herdr, the tab (or pane) label. In kitty, the tab title, tab color and a subtle background tint.
+- **Spawn and close**: opens or closes worker windows only after Claude Code's own permission prompt gets your yes. Inside herdr, a worker gets a new tab in the boss's workspace. Otherwise it gets a new kitty window. Several sessions can go in one call, behind one prompt.
 - **Briefing**: workers learn their name and how to report back on start, after `/clear`, and after compaction.
 
 The boss never does project work and never auto-approves anything. See `docs/project-brief.md` for the full scope and `docs/acceptance-*.md` for the acceptance runs.
@@ -22,7 +22,8 @@ The boss never does project work and never auto-approves anything. See `docs/pro
 
 - Bash scripts in `bin/`, with shared helpers in `bin/lib.sh`
 - [jq](https://jqlang.org/) for the session registry and event log
-- [kitty](https://sw.kovidgoyal.net/kitty/) remote control (`kitten @`) for labels, screen reads and keypresses
+- The [herdr](https://herdr.dev/) CLI for labels, screen reads, keypresses, spawn and close, for workers in herdr panes
+- [kitty](https://sw.kovidgoyal.net/kitty/) remote control (`kitten @`) for the same, for workers in plain kitty windows
 - Claude Code hooks, peer messaging (ListAgents/SendMessage) and the Monitor tool
 - A Claude Code plugin (TypeScript/TSX) for the band, in `mods/boss-band/`
 - Linux `/proc` for discovering `claude` processes

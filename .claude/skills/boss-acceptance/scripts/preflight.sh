@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Read-only preflight for boss-acceptance step 1: are there enough kitty workers (2+, one in a git
-# repo), and does `claude --version` match the version on CLAUDE.md's Known keys line?
+# Read-only preflight for boss-acceptance step 1: are there enough reachable workers (in herdr or
+# kitty; 2+, one in a git repo), and does `claude --version` match the version on CLAUDE.md's Known
+# keys line?
 # Usage: preflight.sh    exit 0 = ready, 1 = not enough workers (stop), 2 = no live boss,
 #                        3 = ready but the version changed (key mappings unverified until 4a-4c pass)
 set -u
@@ -12,19 +13,19 @@ for f in "$SESS_DIR"/*.json; do
   [ -f "$f" ] || continue
   pid=$(basename "$f" .json)
   is_claude "$pid" || continue
-  [ -n "$(jq -r '.kitty.to // empty' "$f")" ] || continue
+  herdr_target "$pid" >/dev/null || [ -n "$(jq -r '.kitty.to // empty' "$f")" ] || continue
   workers=$((workers + 1))
   cwd=$(jq -r .cwd "$f")
   git -C "$cwd" rev-parse --is-inside-work-tree >/dev/null 2>&1 && git_workers+="$(jq -r .name "$f") "
 done
-echo "kitty workers: $workers; in a git repo: ${git_workers:-none}"
+echo "reachable workers (herdr or kitty): $workers; in a git repo: ${git_workers:-none}"
 
 live=$(claude --version 2>/dev/null | awk '{print $1}')
 known=$(sed -n 's/^\*\*Known keys\*\* (verified on Claude Code \([^)]*\)).*/\1/p' "$BOSS_DIR/CLAUDE.md" | head -1)
 echo "claude --version: ${live:-?}; Known keys verified on: ${known:-?}"
 
 if [ "$workers" -lt 2 ] || [ -z "$git_workers" ]; then
-  echo "NOT READY: need 2+ kitty workers, one of them in a git repo"
+  echo "NOT READY: need 2+ reachable workers, one of them in a git repo"
   exit 1
 fi
 if [ -z "$live" ] || [ "$live" != "$known" ]; then

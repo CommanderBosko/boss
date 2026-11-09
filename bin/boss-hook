@@ -90,6 +90,7 @@ case $event in
   SessionEnd)
     # /clear ends the old session but the process (and its window) lives on; SessionStart follows.
     [ "$(j '.reason // empty')" = clear ] && exit 0
+    # A herdr label stays: the shell left in that pane is still in the session's folder.
     to=$(jq -r '.kitty.to // empty' "$f"); win=$(jq -r '.kitty.win // empty' "$f")
     [ -n "$to" ] && unlabel "$to" "$win"
     emit "$cpid" "$name" ended "session ended ($(j '.reason // "exit"'))"

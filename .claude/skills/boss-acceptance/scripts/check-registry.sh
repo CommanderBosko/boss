@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Read-only check for definition-of-done item 1: the registry lists exactly the claude processes
 # `pgrep -x claude` shows, minus the boss, each with the right folder and name. Also prints each
-# worker's kitty background (item 2: same folder, same color) and focus (item 3: never focused).
+# worker's window (herdr pane or kitty), its kitty background (item 2: same folder, same color;
+# herdr has no tint, so `-`), and focus (item 3: never focused).
 # Usage: check-registry.sh    exit 0 = match, 1 = mismatch, 2 = no live boss
 set -u
 . "$(dirname "$(readlink -f "$0")")/../../../../bin/lib.sh"
@@ -12,7 +13,7 @@ regs=$(for f in "$SESS_DIR"/*.json; do [ -f "$f" ] && basename "$f" .json; done)
 
 fail=0 rows=""
 for pid in $(printf '%s\n%s\n' "$procs" "$regs" | sort -nu); do
-  f=$(sess_file "$pid") name=- folder=- bg=- focused=- check=ok
+  f=$(sess_file "$pid") name=- folder=- window=- bg=- focused=- check=ok
   live_cwd=$(readlink "/proc/$pid/cwd" 2>/dev/null)
   if ! printf '%s\n' "$procs" | grep -qx "$pid"; then
     check=STALE
@@ -24,17 +25,21 @@ for pid in $(printf '%s\n%s\n' "$procs" "$regs" | sort -nu); do
     if [ "$folder" != "$live_cwd" ]; then check="WRONG-FOLDER(live:$live_cwd)"
     elif [ "${name%-[0-9]*}" != "$(base_name "$live_cwd")" ]; then check=WRONG-NAME
     fi
-    if [ -n "$to" ] && [ -n "$win" ]; then
+    if ht=$(herdr_target "$pid"); then
+      window="herdr:${ht#* }"
+      focused=$(hd "${ht% *}" pane get "${ht#* }" 2>/dev/null | jq -r '.result.pane.focused | if . == null then "?" else tostring end')
+    elif [ -n "$to" ] && [ -n "$win" ]; then
+      window=kitty
       bg=$(kitten @ --to "$to" get-colors --match "id:$win" 2>/dev/null | awk '$1 == "background" {print $2}')
       focused=$(kitten @ --to "$to" ls --match "id:$win" 2>/dev/null |
         jq -r --argjson w "$win" '[.[].tabs[].windows[] | select(.id == $w) | .is_focused | tostring] | first // "?"')
     fi
   fi
   [ "$check" = ok ] || fail=1
-  rows+="$pid	$name	${folder/#$HOME/\~}	${bg:--}	${focused:--}	$check"$'\n'
+  rows+="$pid	$name	${folder/#$HOME/\~}	$window	${bg:--}	${focused:--}	$check"$'\n'
 done
 
-{ printf 'PID\tNAME\tFOLDER\tBACKGROUND\tFOCUSED\tCHECK\n'; printf '%s' "$rows"; } | column -t -s $'\t'
+{ printf 'PID\tNAME\tFOLDER\tWINDOW\tBACKGROUND\tFOCUSED\tCHECK\n'; printf '%s' "$rows"; } | column -t -s $'\t'
 if [ "$fail" = 0 ]; then
   echo "OK: registry matches pgrep -x claude (boss pid $bp excluded)"
 else

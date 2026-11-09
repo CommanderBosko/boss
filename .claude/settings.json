@@ -20,7 +20,20 @@
       "Bash(*close-window*)",
       "Bash(*kitten @*launch*)",
       "Bash(*kitty @*launch*)",
-      "Bash(*kitty --detach*)"
+      "Bash(*kitty --detach*)",
+      "Bash(*tab create*)",
+      "Bash(*tab close*)",
+      "Bash(*workspace create*)",
+      "Bash(*workspace close*)",
+      "Bash(*worktree create*)",
+      "Bash(*pane split*)",
+      "Bash(*pane close*)",
+      "Bash(*pane run *)",
+      "Bash(*pane send-keys*)",
+      "Bash(*agent send-keys*)",
+      "Bash(*agent prompt*)",
+      "Bash(*agent start*)",
+      "Bash(*herdr server stop*)"
     ]
   },
   "model": "sonnet",

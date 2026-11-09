@@ -13,7 +13,7 @@ Only THE BOSS runs this. If `[boss-init]` said another boss is running, stop and
 
 ### 1. Preflight
 - Make sure the `/home/bosko/projects/boss/bin/boss-watch` Monitor is armed (absolute path, as in CLAUDE.md), and re-arm it if it has expired.
-- Run `bin/boss-status`, then `.claude/skills/boss-acceptance/scripts/preflight.sh`. Exit 1 means fewer than two kitty workers, or none in a git repo (e.g. you want `NixOS` and `farmer`): stop and ask the user to open them. Don't spawn them yourself: spawning is item 5's test. Exit 3 means `claude --version` differs from the **Known keys** version in `CLAUDE.md`, so every key mapping counts as unverified until items 4a–4c pass.
+- Run `bin/boss-status`, then `.claude/skills/boss-acceptance/scripts/preflight.sh`. Exit 1 means fewer than two reachable workers (in herdr or kitty), or none in a git repo (e.g. you want `NixOS` and `farmer`): stop and ask the user to open them. Don't spawn them yourself: spawning is item 5's test. Exit 3 means `claude --version` differs from the **Known keys** version in `CLAUDE.md`, so every key mapping counts as unverified until items 4a–4c pass.
 - Tell the user which workers the run uses. Don't list the native prompts coming in item 5 (see Gotchas).
 
 Worker prompts come from `assets/worker-prompts.md`. Send each one word for word with SendMessage to the worker's address. Note the time of each send, since several items have a 30-second limit.
@@ -22,7 +22,7 @@ Worker prompts come from `assets/worker-prompts.md`. Send each one word for word
 Run `bin/boss-status`, then `.claude/skills/boss-acceptance/scripts/check-registry.sh`. Exit 0 is a pass. Exit 1 marks each mismatched pid in the CHECK column; record it.
 
 ### 3. Item 2: labels
-Ask the user with AskUserQuestion (Pass / Fail) whether a screenshot shows every worker with a distinct tab name, tint and status line. Keep the BACKGROUND column from step 2: item 5's new `farmer-2` must show the same background as `farmer`.
+Ask the user with AskUserQuestion (Pass / Fail) whether a screenshot shows every worker with a distinct tab name, tint and status line. Herdr workers have no tint (herdr has no tab colors), so for them it's the tab label and the status line. Keep the BACKGROUND column from step 2: for kitty workers, item 5's new `farmer-2` must show the same background as `farmer`.
 
 ### 4. Item 3: relay without focus
 Send **P-3** to the git-repo worker. Pass if its reply reaches the boss and `check-registry.sh` shows FOCUSED `false` for that worker both before and after.
@@ -45,7 +45,7 @@ Pass when the worker's reply matches what the user picked. Judge whether a promp
 ### 6. Item 5 and item 8: spawn and close
 There are four native prompts, strictly one per message. Right before each, give one bold line, e.g. **Prompt 1 of 4, spawning `farmer`: DENY this one.** Put the same instruction in the Bash call's `description`, e.g. `DENY THIS ONE (prompt 1 of 4): spawn farmer`, since the native dialog shows the description. Before each deny, also tell the user to type "continue" afterwards.
 1. `bin/boss-spawn farmer`, denied. Pass: no new pid in `pgrep -x claude`, and no `new` event.
-2. `bin/boss-spawn farmer`, approved. Pass: a `new` event for `farmer-2`, and `check-registry.sh` passes with `farmer-2` on farmer's background.
+2. `bin/boss-spawn farmer`, approved. Pass: a `new` event for `farmer-2`, and `check-registry.sh` passes with `farmer-2` on farmer's background (kitty) or in a new herdr tab labeled `farmer-2` (herdr).
 3. `bin/boss-close farmer-2`, denied. Pass: it's still in `bin/boss-status`.
 4. `bin/boss-close farmer-2`, approved. Pass: an `ended` event, and `farmer-2` is gone from `bin/boss-status` (item 8).
 
@@ -80,8 +80,8 @@ Give one line per item (pass or fail), the doc path, and what you saw for each f
 
 ## Scripts
 
-- `scripts/preflight.sh`: read-only, no arguments. Prints the kitty worker count, which workers are in a git repo, and `claude --version` against the Known keys version. Exit 0 ready, 1 not enough workers, 2 no live boss, 3 ready but the version changed. Called in step 1.
-- `scripts/check-registry.sh`: read-only, no arguments. Prints PID, NAME, FOLDER, BACKGROUND, FOCUSED and CHECK for every worker. Exit 0 if the registry matches `pgrep -x claude` minus the boss, 1 on a mismatch, 2 if no boss is live. Called in steps 2, 4 and 6.
+- `scripts/preflight.sh`: read-only, no arguments. Prints the reachable (herdr or kitty) worker count, which workers are in a git repo, and `claude --version` against the Known keys version. Exit 0 ready, 1 not enough workers, 2 no live boss, 3 ready but the version changed. Called in step 1.
+- `scripts/check-registry.sh`: read-only, no arguments. Prints PID, NAME, FOLDER, WINDOW, BACKGROUND, FOCUSED and CHECK for every worker. Exit 0 if the registry matches `pgrep -x claude` minus the boss, 1 on a mismatch, 2 if no boss is live. Called in steps 2, 4 and 6.
 
 ## Assets
 

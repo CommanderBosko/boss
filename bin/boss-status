@@ -12,7 +12,7 @@ files=("$SESS_DIR"/*.json)
   jq -r --argjson now "$now" '
     def ago: ($now - .) as $s | if $s < 90 then "\($s)s" elif $s < 5400 then "\($s / 60 | floor)m" else "\($s / 3600 | floor)h" end;
     [.name, .state, (.since | ago), (.cwd | sub("^/home/[^/]+"; "~")),
-     (if .kitty then "kitty" else "no kitty" end),
+     (if .herdr then "herdr \(.herdr.pane)" elif .kitty then "kitty" else "none" end),
      (if .pending then "waiting on \(.pending.kind)" + (if .pending.input.command then ": \(.pending.input.command)" else "" end)
       elif .task then "last task: \(.task)" else "" end)
     ] | @tsv' "${files[@]}" | sort
